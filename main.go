@@ -1,22 +1,9 @@
 // a simple key value store
-/*
-System Characteristics
- 1. Supports put key, value
- 2. get value for key
-
-Eventually
-
- 3. supports concurrent access
- 4. distributed / sharded ?
-
-*/
 
 package main
 
 import (
     "fmt"
-    //"net/http"
-    //"log"
   )
 
  type KV struct{
@@ -44,18 +31,41 @@ import (
     return "", false
  }
 
-//func handler(w http.ResponseWriter, r *http.Request) {
-//  fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-//}
+ func (store *KV) Delete(key string) (bool) {
+    for i,_ := range store.keys {
+        if store.keys[i] == key {
+            lastIdx := len(store.keys) - 1
+            store.keys[i] = store.keys[lastIdx]
+            store.values[i] = store.values[lastIdx]
+            store.keys = store.keys[:lastIdx]
+            store.values = store.values[:lastIdx]
+            return true 
+        }
+    }
+    return false
+ }
+
+// print all key, value pairs
+ func (store *KV) Print() {
+    if len(store.keys) == 0 {
+        return
+    }
+
+    fmt.Printf("All pairs: \n{ ")
+    for i,_ := range store.keys {
+        //fmt.Printf("[key: %s, value: %s], ", store.keys[i], store.values[i])
+        fmt.Printf("[%s: %s], ", store.keys[i], store.values[i])
+    }
+    fmt.Printf(" }\n")
+ }
 
 
 func main() {
     fmt.Println("Hello, kvstore")
-//    http.HandleFunc("/", handler)
-//    log.Fatal(http.ListenAndServe(":8080", nil))
     store := KV{}
     store.Put("hello", "world")
     store.Put("cake", "walk")
+    store.Print()
     val, _ := store.Get("hello")
     fmt.Printf("key: hello, val: %s\n", val)
     val, err := store.Get("hi")
@@ -64,5 +74,12 @@ func main() {
     } else {
         fmt.Printf("key: hi not found\n")
     }
+    ok := store.Delete("cake")
+    if ok {
+        fmt.Printf("Deleted key: cake\n")
+    } else {
+        fmt.Printf("Cannot delete key: cake\n")
+    }
+    store.Print()
 }
 
