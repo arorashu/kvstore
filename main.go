@@ -4,11 +4,11 @@ package main
 
 import (
 	"fmt"
-    "net/http"
-    "log"
-    "io/ioutil"
-    "os"
-    "strings"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"strings"
 )
 
 type KV struct {
@@ -105,9 +105,52 @@ func (store *KV) WriteToFile(db string) {
 }
 
 
-//func showAll(w http.ResponseWriter, r *http.Request) {
-//  fmt.Fprintf(w, store.Print())
-//}
+func deleteHandler(w http.ResponseWriter, r *http.Request, store *KV) {
+	q := r.URL.Query()
+	keys, ok := q["key"]
+	if !ok {
+		fmt.Fprintf(w, "Invalid PUT request! No key parameter")
+	}
+	key := keys[0]
+	store.Delete(key)
+	fmt.Fprintf(w, "DELETE key: %s success", key)
+}
+
+func getHandler(w http.ResponseWriter, r *http.Request, store *KV) {
+	q := r.URL.Query()
+	keys, ok := q["key"]
+	if !ok {
+		fmt.Fprintf(w, "Invalid PUT request! No key parameter")
+	}
+	key := keys[0]
+	value, ok := store.Get(key)
+	if !ok {
+		fmt.Fprintf(w, "No value for key: %s", key)
+		return
+	}
+	fmt.Fprintf(w, "key: %s, value: %s", key, value)
+}
+
+func putHandler(w http.ResponseWriter, r *http.Request, store *KV) {
+	q := r.URL.Query()
+	key, ok := q["key"]
+	if !ok {
+		fmt.Fprintf(w, "Invalid PUT request! No key parameter")
+	}
+	value, ok := q["value"]
+	if !ok {
+		fmt.Fprintf(w, "Invalid PUT request! No value parameter")
+	}
+	store.Put(key[0], value[0])
+	fmt.Fprintf(w, "PUT [key: %s, value: %s] success!", key, value)
+}
+
+func closeConnection(w http.ResponseWriter, r *http.Request, store *KV) {
+	store.WriteToFile("db")
+	fmt.Fprintf(w, "closing kv server. Goodbye!")
+	fmt.Fprintf(os.Stdout, "closing kv server. Goodbye!")
+	os.Exit(0)
+}
 
 
 func main() {
@@ -117,41 +160,27 @@ func main() {
 	store.Put("hello", "world")
 	store.Put("cake", "walk")
 
+    // get all
     http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, store.ToString())
     })
 
-    http.HandleFunc("/close", func (w http.ResponseWriter, r *http.Request) {
-        store.WriteToFile("db")
-        fmt.Fprintf(w, "closing kv server. Goodbye!")
-        fmt.Fprintf(os.Stdout, "closing kv server. Goodbye!")
-        os.Exit(0)
+    http.HandleFunc("/put", func (w http.ResponseWriter, r *http.Request) {
+    	putHandler(w, r, &store)
     })
 
+	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+		getHandler(w, r, &store)
+	})
 
-//    http.HandleFunc("/put", func (w http.ResponseWriter, r *http.Request) {
-//        store.Put()
-//        fmt.Fprintf(w, "closing kv server. Goodbye!")
-//        fmt.Fprintf(os.Stdout, "closing kv server. Goodbye!")
-//        os.Exit(0)
-//})
+	http.HandleFunc("/delete", func(w http.ResponseWriter, r *http.Request) {
+		deleteHandler(w, r, &store)
+	})
 
-    log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/close", func (w http.ResponseWriter, r *http.Request) {
+		closeConnection(w, r, &store)
+	})
 
-//	store.Print()
-//	val, _ := store.Get("hello")
-//	fmt.Printf("key: hello, val: %s\n", val)
-//	val, err := store.Get("hi")
-//	if err {
-//		fmt.Printf("key: hi, val: %s\n", val)
-//	} else {
-//		fmt.Printf("key: hi not found\n")
-//	}
-//	ok := store.Delete("cake")
-//	if ok {
-//		fmt.Printf("Deleted key: cake\n")
-//	} else {
-//		fmt.Printf("Cannot delete key: cake\n")
-//	}
-//	store.Print()
+	log.Fatal(http.ListenAndServe(":8080", nil))
+
 }
