@@ -7,8 +7,21 @@
 3. Delete key, value
 
 *How to run*
+1. Start http server
 ```
-go run main.go
+$ go run main.go &
+```
+
+2. Operations
+```
+# get all key, value pairs
+$ curl 'http://localhost:8080/'
+# get value for key
+$ curl 'http://localhost:8080/get?key=someKey'
+# put keys
+$ curl 'http://localhost:8080/put?key=newKey&value=newValue'
+# delete keys
+$ curl 'http://localhost:8080/delete?key=someKey'
 ```
 
 ## Steps
@@ -21,5 +34,10 @@ go run main.go
 
     Next steps, let's make this a persistent store.
 
+2. commit: 96f5f7f88165186b97091ad32fda1d85defa573b
 
-
+    The store is now persistent. If closed gracefully using the /close command.
+    GET, PUT and DELETE work fine.
+    Next steps: handle concurrent access
+    
+    
