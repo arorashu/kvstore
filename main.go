@@ -1,4 +1,5 @@
 // a simple key value store
+// allows concurrent access
 
 package main
 
@@ -9,12 +10,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 type KV struct {
+	mu sync.Mutex
 	keys   []string
 	values []string
 }
+
+/**
+Get, Put, Delete & ToString assumes calling function has taken mutex lock
+*/
 
 func (store *KV) Put(nKey string, nValue string) {
 	for i, key := range store.keys {
@@ -50,20 +57,6 @@ func (store *KV) Delete(key string) bool {
 	return false
 }
 
-// print all key, value pairs
-func (store *KV) Print() {
-	if len(store.keys) == 0 {
-		return
-	}
-
-	fmt.Printf("All pairs: \n{ ")
-	for i, _ := range store.keys {
-		fmt.Printf("[%s: %s], ", store.keys[i], store.values[i])
-	}
-	fmt.Printf(" }\n")
-}
-
-
 func (store *KV) ToString() string{
 	if len(store.keys) == 0 {
 		return ""
@@ -83,7 +76,8 @@ func (store *KV) LoadFromFile(db string) {
     }
     // each line is a key-value pair, separated by \n
     // each line is key,value
-
+	store.mu.Lock()
+	defer store.mu.Unlock()
     for _, line := range strings.Split(string(data), "\n") {
        if line != "" {
            if words := strings.Split(line, ","); len(words)==2 {
@@ -97,6 +91,8 @@ func (store *KV) LoadFromFile(db string) {
 
 
 func (store *KV) WriteToFile(db string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
     data := store.ToString()
     err := ioutil.WriteFile(db + ".kv", []byte(data), 0644)
     if err != nil {
@@ -112,6 +108,8 @@ func deleteHandler(w http.ResponseWriter, r *http.Request, store *KV) {
 		fmt.Fprintf(w, "Invalid PUT request! No key parameter")
 	}
 	key := keys[0]
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	store.Delete(key)
 	fmt.Fprintf(w, "DELETE key: %s success", key)
 }
@@ -123,6 +121,8 @@ func getHandler(w http.ResponseWriter, r *http.Request, store *KV) {
 		fmt.Fprintf(w, "Invalid PUT request! No key parameter")
 	}
 	key := keys[0]
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	value, ok := store.Get(key)
 	if !ok {
 		fmt.Fprintf(w, "No value for key: %s", key)
@@ -141,10 +141,13 @@ func putHandler(w http.ResponseWriter, r *http.Request, store *KV) {
 	if !ok {
 		fmt.Fprintf(w, "Invalid PUT request! No value parameter")
 	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	store.Put(key[0], value[0])
 	fmt.Fprintf(w, "PUT [key: %s, value: %s] success!", key, value)
 }
 
+// TODO: trigger on server exit via Ctrl+c
 func closeConnection(w http.ResponseWriter, r *http.Request, store *KV) {
 	store.WriteToFile("db")
 	fmt.Fprintf(w, "closing kv server. Goodbye!")
